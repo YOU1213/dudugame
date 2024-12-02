@@ -1,64 +1,59 @@
-import cv2
-import mediapipe as mp
+import tkinter as tk
 import random
+import time
 
-# MediaPipe 설정
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands()
-mp_draw = mp.solutions.drawing_utils
-
-# 카메라 설정
-cap = cv2.VideoCapture(0)
-
-# 두더지 이미지 로드
-mole_image = cv2.imread("snow.jpg", cv2.IMREAD_UNCHANGED)  # 두더지 이미지 경로
-
-# 두더지 위치
-mole_x, mole_y = random.randint(50, 500), random.randint(50, 500)
-
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        break
-    
-    # 영상 전처리
-    frame = cv2.flip(frame, 1)
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(rgb_frame)
-
-    # 두더지 이미지 크기 조정 (필요한 경우)
-    mole_resized = cv2.resize(mole_image, (60, 60))  # 두더지 이미지 크기 조정
-
-    # 두더지 이미지 투명도 채널 처리 (알파 채널이 있을 경우)
-    if mole_resized.shape[2] == 4:  # 알파 채널이 있을 경우
-        # ROI(Region of Interest) 지정
-        roi = frame[mole_y:mole_y + mole_resized.shape[0], mole_x:mole_x + mole_resized.shape[1]]
+class WhackAMole:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Whack-A-Mole")
         
-        # 알파 채널 마스크를 사용하여 두더지 이미지를 화면에 합성
-        img_bg = cv2.bitwise_and(roi, roi, mask=cv2.bitwise_not(mole_resized[:, :, 3]))
-        img_fg = cv2.bitwise_and(mole_resized, mole_resized, mask=mole_resized[:, :, 3])
-        frame[mole_y:mole_y + mole_resized.shape[0], mole_x:mole_x + mole_resized.shape[1]] = cv2.add(img_bg, img_fg)
-    else:
-        # 알파 채널이 없을 경우 그냥 합성
-        frame[mole_y:mole_y + mole_resized.shape[0], mole_x:mole_x + mole_resized.shape[1]] = mole_resized
+        self.canvas = tk.Canvas(root, width=500, height=500, bg="green")
+        self.canvas.pack()
 
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+        self.score = 0
+        self.score_label = tk.Label(root, text=f"Score: {self.score}", font=("Arial", 16))
+        self.score_label.pack()
 
-            # 손의 Landmark와 두더지 위치 비교
-            for id, lm in enumerate(hand_landmarks.landmark):
-                h, w, _ = frame.shape
-                cx, cy = int(lm.x * w), int(lm.y * h)
-                # 두더지와 가까운지 확인
-                if abs(cx - mole_x) < 30 and abs(cy - mole_y) < 30:
-                    print("Mole hit!")
-                    mole_x, mole_y = random.randint(50, 500), random.randint(50, 500)  # 두더지 위치 재설정
+        self.mole = None
+        self.running = True
 
-    # 결과 출력
-    cv2.imshow("Dudu Game", frame)
-    if cv2.waitKey(1) & 0xFF == 27:  # ESC로 종료
-        break
+        self.start_time = time.time()
+        self.duration = 30  # 게임 시간: 30초
+        self.create_mole()
 
-cap.release()
-cv2.destroyAllWindows()
+        self.root.after(1000, self.update_timer)
+
+    def create_mole(self):
+        if self.mole:
+            self.canvas.delete(self.mole)
+        if not self.running:
+            return
+        
+        x = random.randint(50, 450)
+        y = random.randint(50, 450)
+        self.mole = self.canvas.create_oval(x - 20, y - 20, x + 20, y + 20, fill="brown")
+        self.canvas.tag_bind(self.mole, "<Button-1>", self.hit_mole)
+        
+        self.root.after(1000, self.create_mole)  # 두더지 생성 주기: 1초
+
+    def hit_mole(self, event):
+        if self.running:
+            self.score += 1
+            self.score_label.config(text=f"Score: {self.score}")
+            self.canvas.delete(self.mole)
+            self.mole = None
+
+    def update_timer(self):
+        elapsed_time = time.time() - self.start_time
+        if elapsed_time > self.duration:
+            self.running = False
+            self.canvas.delete(self.mole)
+            self.score_label.config(text=f"Game Over! Final Score: {self.score}")
+        else:
+            self.root.after(1000, self.update_timer)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    game = WhackAMole(root)
+    root.mainloop()
