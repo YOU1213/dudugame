@@ -35,13 +35,13 @@ while cap.isOpened():
         bgr = mole_resized[:, :, :3]
         alpha = mole_resized[:, :, 3]
         alpha = alpha / 255.0
-       
+        
         mole_x = min(mole_x, frame_width - mole_width)
         mole_y = min(mole_y, frame_height - mole_height)
 
         roi = frame[mole_y:mole_y + mole_height, mole_x:mole_x + mole_width]
 
-        if roi.shape[:2] == alpha.shape:  
+        if roi.shape[:2] == alpha.shape:
             for c in range(0, 3):
                 roi[:, :, c] = roi[:, :, c] * (1 - alpha) + bgr[:, :, c] * alpha
             
